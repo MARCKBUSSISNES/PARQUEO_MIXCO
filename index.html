@@ -1,0 +1,1338 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Iparking</title>
+
+  <!-- Bibliotecas -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#071021; --panel:rgba(6,11,17,0.85); --card:rgba(255,255,255,0.02);
+      --accent:#06b6d4; --accent-2:#ff7a59; --muted:#9aa6b2; --text:#e6eef3;
+      --radius:12px; --btn-radius:28px; --btn-min-width:90px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+    body::before{content:"";position:fixed;inset:0;background-image:url('121212.png');background-size:cover;background-position:center;filter:blur(6px) brightness(0.45);z-index:0}
+    .wrap{position:relative;z-index:1;display:flex;gap:18px;padding:18px;min-height:100vh}
+    @media(max-width:1000px){.wrap{flex-direction:column;padding:12px}}
+
+    .sidebar{width:280px;min-width:220px;background:var(--panel);border-radius:var(--radius);padding:18px;box-shadow:0 12px 40px rgba(0,0,0,0.6)}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:52px;height:52px;border-radius:10px;background:linear-gradient(90deg,var(--accent),#0ea5ad);display:flex;align-items:center;justify-content:center;font-weight:800;color:#012}
+    .small{font-size:13px;color:var(--muted)}
+    .menu{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+    .menu button{background:transparent;border:none;color:var(--muted);text-align:left;padding:10px;border-radius:8px;cursor:pointer}
+    .menu button.active{color:var(--accent);background:linear-gradient(90deg, rgba(6,182,212,0.06), rgba(255,122,89,0.03));font-weight:600}
+
+    .main{flex:1;display:flex;flex-direction:column;gap:12px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .btn{padding:8px;border-radius:8px;border:none;cursor:pointer;background:rgba(255,255,255,0.03);color:var(--text)}
+    .btn.primary{background:linear-gradient(90deg,var(--accent),#0ea5ad);color:#012;font-weight:600}
+    .btn.warn{background:linear-gradient(90deg,var(--accent-2),#ff936e);color:#2b0d00;font-weight:600}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+    .btn.danger{background:linear-gradient(90deg,#fb7185,#ef4444);color:#210007;font-weight:700}
+
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 8px 24px rgba(2,6,23,0.6)}
+    .form-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    input[type="text"], input[type="search"], input[type="date"], select{
+      padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text);outline:none
+    }
+    .table-wrap{overflow:auto;max-height:56vh;margin-top:12px}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:10px 8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:center;color:var(--text);white-space:nowrap}
+    th{font-size:13px;color:var(--muted);background:rgba(0,0,0,0.12);position:sticky;top:0}
+    tr.active{background:linear-gradient(90deg, rgba(6,182,212,0.04), rgba(255,122,89,0.01))}
+
+    .rightcol{width:360px;min-width:260px;display:flex;flex-direction:column;gap:12px}
+    .stats{display:flex;gap:10px;flex-wrap:wrap}
+    .stat{flex:1;min-width:120px;background:rgba(255,255,255,0.015);padding:12px;border-radius:10px;text-align:center}
+    .stat h3{margin:0;font-size:20px}
+    footer{color:var(--muted);text-align:center;margin-top:8px;font-size:13px;position:fixed;left:0;bottom:6px;width:100%;z-index:2}
+    .crown{display:inline-block;margin-left:8px;color:#ffd54a}
+    .muted{color:var(--muted);font-size:13px}
+    .barcode-img{max-width:160px;margin-top:8px}
+    .users-list{max-height:28vh;overflow:auto;margin-top:8px}
+    .users-list li{display:flex;justify-content:space-between;padding:6px 8px;border-radius:6px;background:rgba(255,255,255,0.01);margin-bottom:6px}
+
+    /* Botones redondos con texto (acción en filas) */
+    .action-btn {
+      border-radius: var(--btn-radius);
+      padding: 6px 12px;
+      min-width: var(--btn-min-width);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      border: none;
+      cursor: pointer;
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      transition: transform .12s, background .12s;
+      font-weight:600;
+      font-size:0.95rem;
+    }
+    .action-btn:hover { transform: translateY(-2px); background: rgba(255,255,255,0.04); }
+    .action-btn.exit { background: linear-gradient(90deg,#4ade80,#16a34a); color:#012 }
+    .action-btn.ticket { background: linear-gradient(90deg,#60a5fa,#0369a1); color:#012 }
+    .action-btn.delete { background: linear-gradient(90deg,#fb7185,#ef4444); color:#012 }
+
+    @media(max-width:1000px){
+      .rightcol{width:100%;order:2}.sidebar{width:100%;order:3}.main{order:1}
+      .action-btn{min-width:72px;padding:6px 8px;font-size:0.85rem}
+    }
+
+    /* ===== MODAL COBRO ===== */
+    .modal-backdrop{
+      position:fixed; inset:0; background:rgba(0,0,0,0.62);
+      display:none; align-items:center; justify-content:center;
+      z-index:9999;
+    }
+    .modal{
+      width:min(680px, 96vw);
+      background:rgba(6,11,17,0.95);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:16px;
+      box-shadow:0 18px 60px rgba(0,0,0,0.7);
+      overflow:hidden;
+    }
+    .modal-head{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:14px 16px;
+      background:linear-gradient(90deg, rgba(6,182,212,0.10), rgba(255,122,89,0.06));
+      border-bottom:1px solid rgba(255,255,255,0.06);
+    }
+    .modal-head .title{font-weight:900; letter-spacing:.3px}
+    .modal-body{padding:14px 16px; display:flex; gap:14px; flex-wrap:wrap}
+    .modal-col{flex:1; min-width:260px}
+    .modal-logo{
+      width:100%; max-width:260px; border-radius:10px;
+      box-shadow:0 10px 28px rgba(0,0,0,0.35);
+    }
+    .kv{
+      display:grid; grid-template-columns:120px 1fr; gap:8px 10px;
+      background:rgba(255,255,255,0.02);
+      border:1px solid rgba(255,255,255,0.04);
+      border-radius:12px;
+      padding:12px;
+    }
+    .kv .k{color:var(--muted); text-align:left}
+    .kv .v{font-weight:800; text-align:left}
+    .modal-actions{
+      padding:14px 16px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;
+      border-top:1px solid rgba(255,255,255,0.06);
+      background:rgba(0,0,0,0.12);
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px; padding:8px 10px;
+      border-radius:999px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.04);
+      color:var(--muted); font-size:13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">MB</div>
+        <div>
+          <div style="font-weight:800">iParking 👑</div>
+          <div class="small">Administración</div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <img src="IMAGEN1.png" alt="logo" style="width:100%;border-radius:8px;margin-top:10px;box-shadow:0 6px 18px rgba(0,0,0,0.3)"/>
+      </div>
+
+      <div class="menu" id="menu">
+        <button data-view="dashboard" class="active">📊 Dashboard</button>
+        <button data-view="registro">📋 Historial</button>
+        <button data-view="ventas">💰 Ventas</button>
+        <button data-view="export">⬇️ Exportar</button>
+        <button data-view="users">👥 Usuarios</button>
+        <button data-view="cierres">🗓️ Cierres</button>
+        <button data-view="config">⚙️ Informacion</button>
+      </div>
+
+      <div style="margin-top:12px" class="small">Powered By: MarckBusiness Solutions</div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <div style="font-size:18px;font-weight:700">iParking 👑</div>
+          <div class="muted">© 2026 Marck Business. Todos los derechos reservados.
+Propiedad intelectual protegida.</div>
+        </div>
+
+        <div class="controls">
+          <input id="search" 
+type="search" 
+placeholder="ESCANEAR" 
+style="
+padding:14px 18px;
+width:400px;
+font-size:18px;
+border-radius:12px;
+background:rgba(255,255,255,0.05);
+border:1px solid rgba(255,255,255,0.1);
+color:var(--text);
+outline:none;
+"/>
+
+          <button class="btn ghost" id="btnClearAll" title="Limpiar registros">Limpiar</button>
+          <button class="btn primary" id="btnExportXLS" title="Exportar Excel (.xlsx)">Exportar .xlsx</button>
+          <button class="btn" id="btnExportVisualXLS" title="Exportar Excel visual (.xls)">Exportar visual</button>
+          <button class="btn" id="btnPrintSummary" title="Imprimir resumen">Imprimir</button>
+        </div>
+      </div>
+
+      <section id="view-dashboard" class="card view">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="flex:1">
+            <div class="card">
+              <h3 style="margin:0">Registrar ingreso</h3>
+              <div style="height:10px"></div>
+              <div class="form-row">
+                <select id="tipo" style="width:190px">
+                  <option value="CARRO">CARRO</option>
+                  <option value="MOTO">MOTO</option>
+                  <option value="CAMION_PEQUENO">CAMIÓN PEQUEÑO</option>
+                  <option value="CAMION_MEDIANO">CAMIÓN MEDIANO</option>
+                  <option value="CAMION_GRANDE">CAMIÓN GRANDE</option>
+                </select>
+                <input id="placa" type="text" placeholder="Placa" style="flex:1;min-width:160px"/>
+                <input id="marca" type="text" placeholder="Marca" style="width:180px"/>
+                <input id="color" type="text" placeholder="Color" style="width:160px"/>
+                <button class="btn primary" id="btnIngresar" title="Ingresar (Enter)">Ingresar</button>
+              </div>
+              <div class="muted" style="margin-top:8px">
+                Cobro según tarifas oficiales (media hora / hora). Código de barras: <b>8 dígitos único</b>.
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:12px">
+              <h3 style="margin:0">Vehículos</h3>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Placa</th>
+                      <th>Marca</th>
+                      <th>Color</th>
+                      <th>Código</th>
+                      <th>Ingreso</th>
+                      <th>Salida</th>
+                      <th>Total Q</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="registro"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <aside class="rightcol">
+            <div class="card">
+              <h3 style="margin:0">Resumen del turno</h3>
+              <div class="stats" style="margin-top:12px">
+                <div class="stat"><h3 id="statActivos">0</h3><p>Activos</p></div>
+                <div class="stat"><h3 id="statTotal">Q0.00</h3><p>Recaudado</p></div>
+                <div class="stat"><h3 id="statEntradas">0</h3><p>Entradas hoy</p></div>
+              </div>
+              <div style="height:12px"></div>
+              <canvas id="chart" height="220"></canvas>
+            </div>
+
+            <div class="card">
+              <h4 style="margin:0">Acciones rápidas</h4>
+              <div style="height:8px"></div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn" id="iconExportXLS" title="Exportar .xlsx">Excel</button>
+                <button class="btn" id="iconPrint" title="Imprimir resumen">Imprimir</button>
+                <button class="btn" id="iconClear" title="Limpiar registros">Limpiar</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="view-registro" class="card view" style="display:none">
+        <h3>Historial completo</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Tipo</th>
+                <th>Placa</th>
+                <th>Marca</th>
+                <th>Color</th>
+                <th>Código</th>
+                <th>Ingreso</th>
+                <th>Salida</th>
+                <th>Min</th>
+                <th>Total Q</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="historial"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Ventas por rango de fechas -->
+      <section id="view-ventas" class="card view" style="display:none">
+        <h3>Ventas por rango de fechas</h3>
+        <div class="form-row" style="margin-top:10px">
+          <input id="ventasDesde" type="date"/>
+          <input id="ventasHasta" type="date"/>
+          <button class="btn primary" id="btnFiltrarVentas">Aplicar filtro</button>
+          <span class="pill" id="ventasResumen">Total: Q0.00 — 0 ventas</span>
+        </div>
+        <div class="table-wrap" style="margin-top:12px">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Tipo</th>
+                <th>Placa</th>
+                <th>Marca</th>
+                <th>Color</th>
+                <th>Código</th>
+                <th>Ingreso</th>
+                <th>Salida</th>
+                <th>Min</th>
+                <th>Total Q</th>
+              </tr>
+            </thead>
+            <tbody id="ventasTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="view-export" class="card view" style="display:none">
+        <h3>Exportar</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn primary" id="exportJSON">Service not available</button>
+          <button class="btn" id="importJSONBtn">Service not available</button>
+          <input type="file" id="fileImport" accept="application/json" style="display:none"/>
+        </div>
+        <div id="importResult" class="muted" style="margin-top:12px"></div>
+      </section>
+
+      <section id="view-users" class="card view" style="display:none">
+        <h3>Usuarios</h3>
+        <div style="display:flex;gap:12px;align-items:center">
+          <input id="u_name" type="text" placeholder="Nombre usuario" style="flex:1"/>
+          <input id="u_role" type="text" placeholder="Rol (ej: cajero)" style="width:160px"/>
+          <button class="btn primary" id="btnAddUser">Agregar</button>
+        </div>
+        <ul class="users-list" id="usersList"></ul>
+      </section>
+
+      <section id="view-cierres" class="card view" style="display:none">
+        <h3>Cierres diarios</h3>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn primary" id="btnGenerarCierre">Generar cierre</button>
+          <button class="btn" id="btnExportCierresXLS">Exportar cierres (EXCEL)</button>
+          <span class="pill" id="cierreHint">Cierre = ventas cobradas (con salida).</span>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h4 style="margin:0">Cierre de caja (formas de pago)</h4>
+          <div class="muted" style="margin-top:6px">Ingresa lo recibido para comparar contra el total del sistema.</div>
+          <div class="form-row" style="margin-top:10px">
+            <input id="p_efectivo" type="text" placeholder="Efectivo Q" style="width:160px"/>
+            <input id="p_tarjeta" type="text" placeholder="Tarjeta Q" style="width:160px"/>
+            <input id="p_transferencia" type="text" placeholder="Transferencia Q" style="width:180px"/>
+            <input id="p_otros" type="text" placeholder="Otros Q" style="width:140px"/>
+            <span class="pill" id="cajaComparativa">Sistema: Q0.00 • Recibido: Q0.00 • Dif: Q0.00</span>
+          </div>
+          <div class="muted" style="margin-top:8px">
+            Tip: puedes dejar en blanco lo que no uses. Al generar cierre se imprime ticket 80mm con detalle.
+          </div>
+        </div>
+
+        <div style="height:12px"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Fecha</th><th>Cantidad</th><th>Total Q</th><th>Acciones</th></tr></thead>
+            <tbody id="cierresTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="view-config" class="card view" style="display:none">
+        <h3>Configuración</h3>
+        <div style="margin-top:8px" class="muted">----------------------------------</div>
+        <div style="margin-top:10px">© MarckBusiness 2025 — iParking <span class="crown">👑</span></div>
+        <div style="height:8px"></div>
+        <button class="btn" id="btnResetTarifas">Button Disabled</button>
+      </section>
+
+      <footer>© MarckBusiness 2025 — iParking <span class="crown">👑</span></footer>
+    </main>
+  </div>
+
+  <!-- Modal Cobro -->
+  <div class="modal-backdrop" id="cobroBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cobroTitle">
+      <div class="modal-head">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="title" id="cobroTitle">💳 PANEL DE COBRO</div>
+          <span class="pill">Escanea/ingresa el código (8 dígitos)</span>
+        </div>
+        <button class="btn ghost" id="btnCerrarCobro">Cerrar</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-col" style="display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center">
+          <img src="IMAGEN1.png" alt="logo" class="modal-logo">
+          <input id="cobroCodigo" type="text" inputmode="numeric" placeholder="CÓDIGO (8 dígitos)" maxlength="8"
+                 style="width:100%;max-width:260px;text-align:center;font-weight:900;font-size:18px;letter-spacing:2px"/>
+          <div class="muted" style="text-align:center">
+            Tip: el lector escribe el código y presiona Enter.
+          </div>
+        </div>
+
+        <div class="modal-col">
+          <div class="kv">
+            <div class="k">Tipo</div><div class="v" id="c_tipo">-</div>
+            <div class="k">Placa</div><div class="v" id="c_placa">-</div>
+            <div class="k">Marca</div><div class="v" id="c_marca">-</div>
+            <div class="k">Color</div><div class="v" id="c_color">-</div>
+            <div class="k">Ingreso</div><div class="v" id="c_ingreso">-</div>
+            <div class="k">Salida</div><div class="v" id="c_salida">-</div>
+            <div class="k">Minutos</div><div class="v" id="c_min">-</div>
+            <div class="k">Total</div><div class="v" id="c_total">Q0.00</div>
+          </div>
+          <div class="muted" style="margin-top:10px">
+            El total se calcula automáticamente según las tarifas.
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn ghost" id="btnLimpiarCobro">Limpiar</button>
+        <button class="btn danger" id="btnCancelarCobro">Cancelar</button>
+        <button class="btn primary" id="btnConfirmarCobro">Cobrar y cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'iParking 👑_v1';
+    const USERS_KEY = 'iParking 👑_users_v1';
+    const CIERRES_KEY = 'iParking 👑_cierres_v1';
+
+    let registros = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    let users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+    let cierres = JSON.parse(localStorage.getItem(CIERRES_KEY) || '[]');
+
+    function uid(p='id'){return p+'_'+Math.random().toString(36).slice(2,9)}
+    function save(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(registros));
+      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      localStorage.setItem(CIERRES_KEY, JSON.stringify(cierres));
+    }
+    function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c])}
+
+    // ===== Seguridad de borrado (PIN) =====
+    const DELETE_PIN = "363534";
+    function pedirClaveBorrado(){
+      const x = prompt("Clave para borrar:");
+      if(x === null) return false;
+      if(String(x).trim() !== DELETE_PIN){
+        alert("Clave incorrecta.");
+        return false;
+      }
+      return true;
+    }
+
+    // ====== TARIFAS (según imagen) ======
+    // CARRO: media hora Q5
+    // MOTO:  una hora  Q5
+    // CAMIÓN PEQUEÑO: media hora Q10
+    // CAMIÓN MEDIANO: media hora Q15
+    // CAMIÓN GRANDE:  media hora Q20
+    const TARIFAS = {
+      CARRO: { half: 5, unit: 'HALF_HOUR' },
+      MOTO:  { hour: 5, unit: 'HOUR' },
+      CAMION_PEQUENO: { half: 10, unit: 'HALF_HOUR' },
+      CAMION_MEDIANO: { half: 15, unit: 'HALF_HOUR' },
+      CAMION_GRANDE:  { half: 20, unit: 'HALF_HOUR' }
+    };
+
+    function calcularPago(horaIngreso, horaSalida, tipo){
+      const entrada = new Date(horaIngreso), salida = new Date(horaSalida);
+      const minutos = Math.max(1, Math.ceil((salida - entrada)/60000));
+      const t = TARIFAS[tipo] || TARIFAS.CARRO;
+
+      if (t.unit === 'HOUR') {
+        const horas = Math.ceil(minutos / 60);
+        return { minutos, total: horas * t.hour };
+      }
+      const bloques = Math.ceil(minutos / 30);
+      return { minutos, total: bloques * t.half };
+    }
+
+    // ====== CÓDIGO ÚNICO 8 DÍGITOS ======
+    function generarCodigo8(){
+      for(let k=0;k<8000;k++){
+        const n = Math.floor(10000000 + Math.random()*90000000);
+        const code = String(n);
+        const existe = registros.some(r=>r.codigo===code);
+        if(!existe) return code;
+      }
+      return String(Date.now()).slice(-8);
+    }
+
+    // ====== IMPRESIÓN ======
+    const TICKET_IMG='IMAGEN1.png';
+
+    function imprimirHTMLWindow(html){
+      const w=window.open('','_blank','width=380,height=640');
+      if(!w){alert('Permite popups en el navegador.');return}
+      w.document.write(html);
+      w.document.close();
+      setTimeout(()=>w.print(),450);
+    }
+
+    function createBarcodeDataUrl(text){
+      const canvas=document.createElement('canvas');
+      JsBarcode(canvas, String(text), {format:'code128',displayValue:false,height:40,margin:6});
+      return canvas.toDataURL('image/png');
+    }
+
+    function tipoLabel(tipo){
+      return ({
+        CARRO:'CARRO',
+        MOTO:'MOTO',
+        CAMION_PEQUENO:'CAMIÓN PEQUEÑO',
+        CAMION_MEDIANO:'CAMIÓN MEDIANO',
+        CAMION_GRANDE:'CAMIÓN GRANDE'
+      })[tipo] || 'CARRO';
+    }
+
+    function imprimirTicket(placa,marca,color,tipo,codigo,hora){
+      const fecha=new Date(hora);
+      const fechaStr=fecha.toLocaleDateString();
+      const horaStr=fecha.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      const barcodeData=createBarcodeDataUrl(codigo);
+
+      const html=`<html><head><meta charset="utf-8"><title>Ticket</title>
+      <style>
+        @page{size:80mm auto;margin:0}
+        body{font-family:monospace;text-align:center;padding:10px;color:#000}
+        .line{border-top:1px dashed #000;margin:10px 0}
+        .big{font-size:18pt;font-weight:700}
+        img.logo{max-width:220px;height:auto}
+        .small{font-size:11px}
+      </style></head><body>
+      <img src="${TICKET_IMG}" class="logo"/>
+      <div class="line"></div>
+      <div class="big">TICKET DE INGRESO</div>
+      <div class="small">Tipo: <b>${escapeHtml(tipoLabel(tipo))}</b></div>
+      <div class="line"></div>
+      <div>FECHA</div><div>${fechaStr}</div>
+      <div class="line"></div>
+      <div>HORA DE INGRESO</div><div class="big">${horaStr}</div>
+      <div class="line"></div>
+      <div>PLACA</div><div class="big">${escapeHtml(placa)}</div>
+      <div class="line"></div>
+      <div>MARCA</div><div class="big">${escapeHtml(marca)}</div>
+      <div class="line"></div>
+      <div>COLOR</div><div class="big">${escapeHtml(color||'-')}</div>
+      <div class="line"></div>
+      <div>CÓDIGO</div><div class="big">${escapeHtml(codigo)}</div>
+      <div><img src="${barcodeData}" class="barcode-img"/></div>
+      <div class="line"></div>
+      <pre>Gracias por su visita
+*RECUERDE NO PERDER SU TICKET*</pre>
+      </body></html>`;
+      imprimirHTMLWindow(html);
+    }
+
+    function imprimirFactura(d){
+      const entrada=new Date(d.horaIngreso), salida=new Date(d.horaSalida);
+      const calc = calcularPago(d.horaIngreso, d.horaSalida, d.tipo);
+      const barcodeData=createBarcodeDataUrl(d.codigo);
+
+      const html=`<html><head><meta charset="utf-8"><title>Factura</title>
+      <style>
+        @page{size:80mm auto;margin:0}
+        body{font-family:monospace;text-align:center;padding:10px;color:#000}
+        .line{border-top:1px dashed #000;margin:10px 0}
+        .big{font-size:18pt;font-weight:700}
+        img.logo{max-width:220px;height:auto}
+        .small{font-size:11px}
+      </style></head><body>
+      <img src="${TICKET_IMG}" class="logo"/>
+      <div class="line"></div>
+      <div class="big">FACTURA</div>
+      <div class="small">Tipo: <b>${escapeHtml(tipoLabel(d.tipo))}</b></div>
+      <div class="line"></div>
+
+      <div>PLACA</div><div class="big">${escapeHtml(d.placa)}</div>
+      <div class="line"></div>
+      <div>MARCA</div><div class="big">${escapeHtml(d.marca)}</div>
+      <div class="line"></div>
+      <div>COLOR</div><div class="big">${escapeHtml(d.color||'-')}</div>
+      <div class="line"></div>
+
+      <div>CÓDIGO</div><div class="big">${escapeHtml(d.codigo)}</div>
+      <div><img src="${barcodeData}" class="barcode-img"/></div>
+      <div class="line"></div>
+
+      <div>ENTRADA</div><div>${entrada.toLocaleString()}</div>
+      <div class="line"></div>
+      <div>SALIDA</div><div>${salida.toLocaleString()}</div>
+      <div class="line"></div>
+
+      <div>TIEMPO TOTAL</div><div class="big">${calc.minutos} minutos</div>
+      <div class="line"></div>
+
+      <div>TOTAL A PAGAR</div><div class="big">Q${Number(d.total).toFixed(2)}</div>
+      <div class="line"></div>
+      <pre>Gracias por su visita</pre>
+      </body></html>`;
+      imprimirHTMLWindow(html);
+    }
+
+    function imprimirCierreTicket(cierre){
+      const pagos = cierre.pagos || {efectivo:0, tarjeta:0, transferencia:0, otros:0};
+      const totalSistema = Number(cierre.totalSistema || 0);
+      const totalRecibido = Number(cierre.totalRecibido || 0);
+      const dif = Number(cierre.diferencia || 0);
+      const estado = dif === 0 ? "CUADRADO" : (dif > 0 ? "SOBRANTE" : "FALTANTE");
+
+      const fecha = cierre.fecha || new Date().toLocaleString();
+      const html = `<html><head><meta charset="utf-8"><title>Cierre</title>
+      <style>
+        @page{size:80mm auto;margin:0}
+        body{font-family:monospace;text-align:center;padding:10px;color:#000}
+        .line{border-top:1px dashed #000;margin:10px 0}
+        .big{font-size:18pt;font-weight:700}
+        .mid{font-size:14pt;font-weight:700}
+        img.logo{max-width:220px;height:auto}
+        table{width:100%;border-collapse:collapse;font-size:12px}
+        td{padding:3px 0;text-align:left}
+        td.r{text-align:right}
+      </style></head><body>
+        <img src="${TICKET_IMG}" class="logo"/>
+        <div class="line"></div>
+        <div class="big">CIERRE DE CAJA</div>
+        <div>${escapeHtml(fecha)}</div>
+        <div class="line"></div>
+
+        <table>
+          <tr><td>Ventas cobradas</td><td class="r"><b>${cierre.cantidadVentas||0}</b></td></tr>
+          <tr><td>Total sistema</td><td class="r"><b>Q${totalSistema.toFixed(2)}</b></td></tr>
+        </table>
+
+        <div class="line"></div>
+        <div class="mid">FORMAS DE PAGO</div>
+        <table>
+          <tr><td>Efectivo</td><td class="r">Q${Number(pagos.efectivo||0).toFixed(2)}</td></tr>
+          <tr><td>Tarjeta</td><td class="r">Q${Number(pagos.tarjeta||0).toFixed(2)}</td></tr>
+          <tr><td>Transferencia</td><td class="r">Q${Number(pagos.transferencia||0).toFixed(2)}</td></tr>
+          <tr><td>Otros</td><td class="r">Q${Number(pagos.otros||0).toFixed(2)}</td></tr>
+          <tr><td><b>Total recibido</b></td><td class="r"><b>Q${totalRecibido.toFixed(2)}</b></td></tr>
+        </table>
+
+        <div class="line"></div>
+        <table>
+          <tr><td><b>Comparativa</b></td><td class="r"><b>${estado}</b></td></tr>
+          <tr><td>Diferencia</td><td class="r"><b>Q${dif.toFixed(2)}</b></td></tr>
+        </table>
+
+        <div class="line"></div>
+        <pre>MarckBusiness Solutions
+Gracias.</pre>
+      </body></html>`;
+      imprimirHTMLWindow(html);
+    }
+
+    // ====== MODAL COBRO ======
+    const cobroBackdrop = document.getElementById('cobroBackdrop');
+    const cobroCodigo = document.getElementById('cobroCodigo');
+
+    let cobroIndex = null;
+    let cobroSalidaPreview = null;
+
+    function abrirCobro(index=null){
+      cobroIndex = index;
+      cobroSalidaPreview = null;
+      cobroBackdrop.style.display='flex';
+      cobroBackdrop.setAttribute('aria-hidden','false');
+
+      if(index==null){
+        cobroCodigo.value='';
+        setCobroDetalle(null);
+      } else {
+        const r = registros[index];
+        cobroCodigo.value = (r?.codigo || '');
+        setCobroDetalle(r);
+      }
+
+      setTimeout(()=>cobroCodigo.focus(), 80);
+      setTimeout(()=>cobroCodigo.select?.(), 120);
+    }
+
+    function cerrarCobro(){
+      cobroBackdrop.style.display='none';
+      cobroBackdrop.setAttribute('aria-hidden','true');
+      cobroIndex = null;
+      cobroSalidaPreview = null;
+      cobroCodigo.value='';
+    }
+
+    function setCobroDetalle(r){
+      document.getElementById('c_tipo').innerText = r ? tipoLabel(r.tipo||'CARRO') : '-';
+      document.getElementById('c_placa').innerText = r ? (r.placa||'-') : '-';
+      document.getElementById('c_marca').innerText = r ? (r.marca||'-') : '-';
+      document.getElementById('c_color').innerText = r ? (r.color||'-') : '-';
+      document.getElementById('c_ingreso').innerText = r ? new Date(r.horaIngreso).toLocaleString() : '-';
+
+      if(!r){
+        document.getElementById('c_salida').innerText = '-';
+        document.getElementById('c_min').innerText = '-';
+        document.getElementById('c_total').innerText = 'Q0.00';
+        return;
+      }
+
+      const salida = new Date().toISOString();
+      cobroSalidaPreview = salida;
+
+      const calc = calcularPago(r.horaIngreso, salida, r.tipo||'CARRO');
+      document.getElementById('c_salida').innerText = new Date(salida).toLocaleString();
+      document.getElementById('c_min').innerText = String(calc.minutos);
+      document.getElementById('c_total').innerText = 'Q' + Number(calc.total).toFixed(2);
+    }
+
+    function buscarActivoPorCodigo(code){
+      const idx = registros.findIndex(r => !r.horaSalida && String(r.codigo||'') === String(code));
+      return idx >= 0 ? idx : null;
+    }
+
+    cobroCodigo.addEventListener('input', ()=>{
+      const v = (cobroCodigo.value||'').replace(/\D/g,'').slice(0,8);
+      if(v !== cobroCodigo.value) cobroCodigo.value = v;
+      if(v.length === 8){
+        const idx = buscarActivoPorCodigo(v);
+        if(idx != null){
+          cobroIndex = idx;
+          setCobroDetalle(registros[idx]);
+        } else {
+          setCobroDetalle(null);
+        }
+      }
+    });
+
+    cobroCodigo.addEventListener('keyup', (e)=>{
+      if(e.key === 'Enter'){
+        const v = (cobroCodigo.value||'').replace(/\D/g,'').slice(0,8);
+        if(v.length !== 8) return alert('Ingrese/escanee un código de 8 dígitos.');
+        const idx = buscarActivoPorCodigo(v);
+        if(idx == null) return alert('Código no encontrado o ya cobrado.');
+        cobroIndex = idx;
+        setCobroDetalle(registros[idx]);
+      }
+      if(e.key === 'Escape') cerrarCobro();
+    });
+
+    document.getElementById('btnCerrarCobro').addEventListener('click', cerrarCobro);
+    document.getElementById('btnCancelarCobro').addEventListener('click', cerrarCobro);
+    cobroBackdrop.addEventListener('click', (e)=>{ if(e.target === cobroBackdrop) cerrarCobro(); });
+
+    document.getElementById('btnLimpiarCobro').addEventListener('click', ()=>{
+      cobroIndex = null;
+      cobroSalidaPreview = null;
+      cobroCodigo.value='';
+      setCobroDetalle(null);
+      setTimeout(()=>cobroCodigo.focus(), 80);
+    });
+
+    document.getElementById('btnConfirmarCobro').addEventListener('click', ()=>{
+      if(cobroIndex == null || !registros[cobroIndex]) return alert('No hay vehículo seleccionado para cobrar.');
+      const r = registros[cobroIndex];
+      if(r.horaSalida) return alert('Este registro ya está cobrado.');
+
+      const salida = cobroSalidaPreview || new Date().toISOString();
+      const calc = calcularPago(r.horaIngreso, salida, r.tipo||'CARRO');
+
+      r.horaSalida = salida;
+      r.total = calc.total;
+
+      imprimirFactura(r);
+      actualizarTabla();
+      cerrarCobro();
+    });
+
+    // ====== TABLAS ======
+    function actualizarTabla(){
+      const tbody = document.getElementById('registro');
+      tbody.innerHTML='';
+
+      registros.forEach((r,i)=>{
+        const tr=document.createElement('tr');
+        if(!r.horaSalida) tr.classList.add('active');
+        tr.innerHTML = `
+          <td>${escapeHtml(tipoLabel(r.tipo || 'CARRO'))}</td>
+          <td>${escapeHtml(r.placa)}</td>
+          <td>${escapeHtml(r.marca)}</td>
+          <td>${escapeHtml(r.color || '-')}</td>
+          <td><b>${escapeHtml(r.codigo || '-')}</b></td>
+          <td>${new Date(r.horaIngreso).toLocaleString()}</td>
+          <td>${r.horaSalida?new Date(r.horaSalida).toLocaleString():'-'}</td>
+          <td>${r.total!=null?'Q'+Number(r.total).toFixed(2):'-'}</td>
+          <td>
+            ${r.horaSalida?'':`<button class="action-btn exit" data-idx="${i}" data-action="salir">Salir</button>`}
+            <button class="action-btn ticket" data-idx="${i}" data-action="ticket">Ticket</button>
+            <button class="action-btn delete" data-idx="${i}" data-action="delete">Eliminar</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+
+      save();
+      actualizarResumen();
+      renderHistorial();
+      renderCierresTable();
+      renderUsers();
+      renderVentas();
+      actualizarComparativaCaja();
+    }
+
+    // Registrar ingreso
+    document.getElementById('btnIngresar').addEventListener('click',()=>{
+      const placaEl=document.getElementById('placa');
+      const marcaEl=document.getElementById('marca');
+      const colorEl=document.getElementById('color');
+      const tipoEl=document.getElementById('tipo');
+
+      const placa=(placaEl.value||'').trim();
+      const marca=(marcaEl.value||'').trim();
+      const color=(colorEl.value||'').trim();
+      const tipo=(tipoEl.value||'CARRO');
+
+      if(!placa||!marca) return alert('Ingrese placa y marca');
+
+      const hora=new Date().toISOString();
+      const codigo = generarCodigo8();
+
+      const rec = { id:uid('r'), tipo, placa, marca, color, codigo, horaIngreso:hora, horaSalida:null, total:null };
+      registros.push(rec);
+
+      placaEl.value=''; marcaEl.value=''; colorEl.value='';
+      placaEl.focus();
+
+      imprimirTicket(rec.placa, rec.marca, rec.color, rec.tipo, rec.codigo, rec.horaIngreso);
+      actualizarTabla();
+    });
+
+    // Acciones tabla
+    document.getElementById('registro').addEventListener('click',(e)=>{
+      const btn=e.target.closest('button'); if(!btn) return;
+      const idx=Number(btn.dataset.idx), action=btn.dataset.action;
+
+      if(action==='salir'){ abrirCobro(idx); }
+      if(action==='ticket'){ imprimirTicketFromIndex(idx); }
+      if(action==='delete'){
+        if(!pedirClaveBorrado()) return;
+        if(confirm('Eliminar registro?')) { registros.splice(idx,1); actualizarTabla(); }
+      }
+    });
+
+    function imprimirTicketFromIndex(index){
+      const r=registros[index]; if(!r) return;
+      imprimirTicket(r.placa, r.marca, r.color, r.tipo || 'CARRO', r.codigo || generarCodigo8(), r.horaIngreso);
+    }
+
+    // ====== RESUMEN ======
+    function actualizarResumen(){
+      const activos=registros.filter(r=>!r.horaSalida).length;
+      const total=registros.reduce((s,r)=>s+(r.total||0),0);
+      const hoy=registros.filter(r=>new Date(r.horaIngreso).toDateString()===new Date().toDateString()).length;
+
+      document.getElementById('statActivos').innerText=activos;
+      document.getElementById('statTotal').innerText='Q'+total.toFixed(2);
+      document.getElementById('statEntradas').innerText=hoy;
+
+      renderChart();
+    }
+
+    let chartInstance=null;
+    function renderChart(){
+      const ctx=document.getElementById('chart').getContext('2d');
+      const buckets={};
+      registros.forEach(r=>{
+        const h=new Date(r.horaIngreso).getHours();
+        buckets[h]=(buckets[h]||0)+1
+      });
+      const labels=Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+':00');
+      const data=labels.map(l=>buckets[Number(l.slice(0,2))]||0);
+      if(chartInstance) chartInstance.destroy();
+      chartInstance=new Chart(ctx,{
+        type:'bar',
+        data:{labels,datasets:[{label:'Entradas por hora',data,backgroundColor:'rgba(6,182,212,0.85)'}]},
+        options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+      });
+    }
+
+    // ====== HISTORIAL ======
+    function renderHistorial(){
+      const tbody=document.getElementById('historial');
+      tbody.innerHTML='';
+
+      registros.forEach((r,i)=>{
+        const minutos=r.horaSalida?Math.ceil((new Date(r.horaSalida)-new Date(r.horaIngreso))/60000):'-';
+        const tr=document.createElement('tr');
+        tr.innerHTML=`
+          <td>${i+1}</td>
+          <td>${escapeHtml(tipoLabel(r.tipo || 'CARRO'))}</td>
+          <td>${escapeHtml(r.placa)}</td>
+          <td>${escapeHtml(r.marca)}</td>
+          <td>${escapeHtml(r.color || '-')}</td>
+          <td><b>${escapeHtml(r.codigo || '-')}</b></td>
+          <td>${new Date(r.horaIngreso).toLocaleString()}</td>
+          <td>${r.horaSalida?new Date(r.horaSalida).toLocaleString():'-'}</td>
+          <td>${minutos}</td>
+          <td>${r.total!=null?'Q'+Number(r.total).toFixed(2):'-'}</td>
+          <td><button class="btn" data-idx="${i}" data-action="view">Ver</button></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ====== VENTAS POR RANGO ======
+    function dateToStartISO(dateStr){
+      if(!dateStr) return null;
+      const [y,m,d]=dateStr.split('-').map(Number);
+      return new Date(y, m-1, d, 0,0,0,0).toISOString();
+    }
+    function dateToEndISO(dateStr){
+      if(!dateStr) return null;
+      const [y,m,d]=dateStr.split('-').map(Number);
+      return new Date(y, m-1, d, 23,59,59,999).toISOString();
+    }
+
+    function renderVentas(){
+      const desdeEl=document.getElementById('ventasDesde');
+      const hastaEl=document.getElementById('ventasHasta');
+      const tbody=document.getElementById('ventasTable');
+      const resumen=document.getElementById('ventasResumen');
+      if(!tbody || !resumen) return;
+
+      const desde = dateToStartISO(desdeEl?.value);
+      const hasta = dateToEndISO(hastaEl?.value);
+
+      const ventas = registros.filter(r=>{
+        if(!r.horaSalida) return false;
+        const ts = new Date(r.horaSalida).getTime();
+        if(desde && ts < new Date(desde).getTime()) return false;
+        if(hasta && ts > new Date(hasta).getTime()) return false;
+        return true;
+      });
+
+      tbody.innerHTML='';
+      let total = 0;
+
+      ventas.forEach((r,i)=>{
+        const minutos = Math.ceil((new Date(r.horaSalida)-new Date(r.horaIngreso))/60000);
+        total += (r.total||0);
+        const tr=document.createElement('tr');
+        tr.innerHTML=`
+          <td>${i+1}</td>
+          <td>${escapeHtml(tipoLabel(r.tipo||'CARRO'))}</td>
+          <td>${escapeHtml(r.placa)}</td>
+          <td>${escapeHtml(r.marca)}</td>
+          <td>${escapeHtml(r.color||'-')}</td>
+          <td><b>${escapeHtml(r.codigo||'-')}</b></td>
+          <td>${new Date(r.horaIngreso).toLocaleString()}</td>
+          <td>${new Date(r.horaSalida).toLocaleString()}</td>
+          <td>${minutos}</td>
+          <td>Q${Number(r.total||0).toFixed(2)}</td>`;
+        tbody.appendChild(tr);
+      });
+
+      resumen.textContent = `Total: Q${total.toFixed(2)} — ${ventas.length} ventas`;
+    }
+    document.getElementById('btnFiltrarVentas')?.addEventListener('click', renderVentas);
+
+    // ====== USUARIOS ======
+    function renderUsers(){
+      const ul=document.getElementById('usersList'); if(!ul) return; ul.innerHTML='';
+      users.forEach((u,idx)=>{
+        const li=document.createElement('li');
+        li.innerHTML=`<div><strong>${escapeHtml(u.name)}</strong><div class="muted">${escapeHtml(u.role)}</div></div>
+        <div><button class="btn" data-idx="${idx}" data-action="edit">✏️</button><button class="btn" data-idx="${idx}" data-action="del">🗑️</button></div>`;
+        ul.appendChild(li);
+      });
+    }
+
+    document.getElementById('btnAddUser')?.addEventListener('click',()=>{
+      const n=document.getElementById('u_name').value.trim();
+      const r=document.getElementById('u_role').value.trim();
+      if(!n||!r) return alert('Nombre y rol');
+      users.push({id:uid('u'),name:n,role:r});
+      document.getElementById('u_name').value='';
+      document.getElementById('u_role').value='';
+      save(); renderUsers();
+    });
+
+    document.getElementById('usersList')?.addEventListener('click',(e)=>{
+      const b=e.target.closest('button'); if(!b) return;
+      const idx=Number(b.dataset.idx);
+      const action=b.dataset.action;
+      if(action==='del'){
+        if(!pedirClaveBorrado()) return;
+        if(confirm('Eliminar usuario?')){
+          users.splice(idx,1); save(); renderUsers();
+        }
+      }
+      if(action==='edit'){
+        const u=users[idx];
+        const name=prompt('Editar nombre',u.name);
+        const role=prompt('Editar rol',u.role);
+        if(name&&role){
+          users[idx].name=name; users[idx].role=role; save(); renderUsers();
+        }
+      }
+    });
+
+    // ====== BACKUP JSON ======
+    document.getElementById('exportJSON')?.addEventListener('click',()=>{
+      const blob=new Blob([JSON.stringify(registros,null,2)],{type:'application/json'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='parqueo_backup_'+(new Date()).toISOString().slice(0,10)+'.json';
+      a.click();
+    });
+
+    document.getElementById('importJSONBtn')?.addEventListener('click',()=>document.getElementById('fileImport').click());
+    document.getElementById('fileImport')?.addEventListener('change',(e)=>{
+      const f=e.target.files[0]; if(!f) return;
+      const r=new FileReader();
+      r.onload=()=>{
+        try{
+          const data=JSON.parse(r.result);
+          if(!Array.isArray(data)) return alert('Archivo inválido');
+          if(confirm('Reemplazar registros actuales? (Aceptar = reemplazar)')) registros=data;
+          else registros=registros.concat(data);
+          save(); actualizarTabla(); alert('Importado');
+        }catch(err){alert('Error al leer archivo');}
+      };
+      r.readAsText(f);
+    });
+
+    // ====== EXPORT EXCEL ======
+    document.getElementById('btnExportXLS')?.addEventListener('click', exportXLSX);
+    document.getElementById('iconExportXLS')?.addEventListener('click', exportXLSX);
+    document.getElementById('btnExportVisualXLS')?.addEventListener('click', exportVisualXLS);
+
+    document.getElementById('iconPrint')?.addEventListener('click',()=>document.getElementById('btnPrintSummary').click());
+
+    document.getElementById('btnPrintSummary')?.addEventListener('click', ()=>{
+      const total=registros.reduce((s,r)=>s+(r.total||0),0);
+      const w=window.open('','_blank');
+      if(!w){alert('Permite popups.');return}
+      w.document.write(`<html><head><meta charset="utf-8"><style>@page{size:80mm auto;margin:0}body{font-family:monospace;text-align:center;padding:10px}</style></head>
+      <body><img src="${TICKET_IMG}" style="max-width:220px;height:auto"/><div style="border-top:1px dashed #000;margin:10px 0"></div>
+      <h2 style="margin:0">RESUMEN</h2><pre>TOTAL: Q${total.toFixed(2)}</pre></body></html>`);
+      w.document.close();
+      setTimeout(()=>w.print(),350);
+    });
+
+    document.getElementById('btnClearAll')?.addEventListener('click',()=>{
+      if(!pedirClaveBorrado()) return;
+      if(!confirm('Borrar todos los registros?')) return;
+      registros=[]; save(); actualizarTabla();
+    });
+    document.getElementById('iconClear')?.addEventListener('click',()=>document.getElementById('btnClearAll').click());
+
+    // Buscar
+    document.getElementById('search').addEventListener('input',function(){
+      const q=this.value.trim().toLowerCase();
+      const tbody=document.getElementById('registro');
+      Array.from(tbody.children).forEach(tr=>{
+        const tipo=(tr.children[0]?.innerText||'').toLowerCase();
+        const placa=(tr.children[1]?.innerText||'').toLowerCase();
+        const marca=(tr.children[2]?.innerText||'').toLowerCase();
+        const color=(tr.children[3]?.innerText||'').toLowerCase();
+        const codigo=(tr.children[4]?.innerText||'').toLowerCase();
+        tr.style.display=(tipo.includes(q)||placa.includes(q)||marca.includes(q)||color.includes(q)||codigo.includes(q))?'':'none';
+      });
+    });
+
+    // Menú
+    document.getElementById('menu').addEventListener('click',(e)=>{
+      const b=e.target.closest('button'); if(!b) return;
+      document.querySelectorAll('#menu button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      const view=b.dataset.view;
+      document.querySelectorAll('.view').forEach(v=>v.style.display=(v.id==='view-'+view)?'':'none');
+      if(view==='ventas') renderVentas();
+      if(view==='cierres') actualizarComparativaCaja();
+    });
+
+    document.getElementById('btnResetTarifas')?.addEventListener('click',()=>{
+      if(confirm('Tarifas según aviso oficial. (No modifica registros)')) alert('Tarifas activas: según aviso.');
+    });
+
+    // Enter: placa->marca->color->ingresar
+    document.getElementById('placa').addEventListener('keyup',(e)=>{ if(e.key==='Enter') document.getElementById('marca').focus()});
+    document.getElementById('marca').addEventListener('keyup',(e)=>{ if(e.key==='Enter') document.getElementById('color').focus()});
+    document.getElementById('color').addEventListener('keyup',(e)=>{ if(e.key==='Enter') document.getElementById('btnIngresar').click()});
+
+    // ====== CIERRES ======
+    function numQ(v){
+      const x = String(v||'').replace(/,/g,'.').replace(/[^\d.-]/g,'');
+      const n = Number(x);
+      return isNaN(n) ? 0 : n;
+    }
+
+    function calcularTotalSistemaCobrados(){
+      return registros.filter(r=>r.horaSalida && r.total!=null).reduce((s,r)=>s+(Number(r.total)||0),0);
+    }
+    function calcularCantidadVentasCobradas(){
+      return registros.filter(r=>r.horaSalida && r.total!=null).length;
+    }
+
+    function actualizarComparativaCaja(){
+      const totalSistema = calcularTotalSistemaCobrados();
+      const ef = numQ(document.getElementById('p_efectivo')?.value);
+      const ta = numQ(document.getElementById('p_tarjeta')?.value);
+      const tr = numQ(document.getElementById('p_transferencia')?.value);
+      const ot = numQ(document.getElementById('p_otros')?.value);
+      const recibido = ef+ta+tr+ot;
+      const dif = recibido - totalSistema;
+      const el = document.getElementById('cajaComparativa');
+      if(el){
+        el.textContent = `Sistema: Q${totalSistema.toFixed(2)} • Recibido: Q${recibido.toFixed(2)} • Dif: Q${dif.toFixed(2)}`;
+      }
+    }
+
+    ['p_efectivo','p_tarjeta','p_transferencia','p_otros'].forEach(id=>{
+      document.getElementById(id)?.addEventListener('input', actualizarComparativaCaja);
+    });
+
+    document.getElementById('btnGenerarCierre')?.addEventListener('click', ()=> {
+      const ventas = registros.filter(r=>r.horaSalida && r.total!=null);
+      if (ventas.length === 0) return alert('No hay ventas cobradas para cerrar.');
+
+      const totalSistema = calcularTotalSistemaCobrados();
+
+      const pagos = {
+        efectivo: numQ(document.getElementById('p_efectivo')?.value),
+        tarjeta: numQ(document.getElementById('p_tarjeta')?.value),
+        transferencia: numQ(document.getElementById('p_transferencia')?.value),
+        otros: numQ(document.getElementById('p_otros')?.value)
+      };
+      const totalRecibido = pagos.efectivo + pagos.tarjeta + pagos.transferencia + pagos.otros;
+      const diferencia = totalRecibido - totalSistema;
+
+      const cierre = {
+        id: uid('c'),
+        fecha: new Date().toLocaleString(),
+        cantidadVentas: ventas.length,
+        totalSistema: Number(totalSistema.toFixed(2)),
+        pagos,
+        totalRecibido: Number(totalRecibido.toFixed(2)),
+        diferencia: Number(diferencia.toFixed(2)),
+        detalles: ventas.map(v=>({...v}))
+      };
+
+      if(!confirm(`Generar cierre?\n\nVentas: ${cierre.cantidadVentas}\nTotal sistema: Q${cierre.totalSistema.toFixed(2)}\nTotal recibido: Q${cierre.totalRecibido.toFixed(2)}\nDiferencia: Q${cierre.diferencia.toFixed(2)}`)) return;
+
+      cierres.push(cierre);
+
+      // Mantener tickets abiertos (sin salida) y limpiar solo ventas cobradas
+      registros = registros.filter(r=>!r.horaSalida);
+
+      // Limpiar inputs de caja
+      ['p_efectivo','p_tarjeta','p_transferencia','p_otros'].forEach(id=>{
+        const el = document.getElementById(id); if(el) el.value='';
+      });
+
+      save();
+      actualizarTabla();
+      imprimirCierreTicket(cierre);
+      alert(`Cierre generado. Total sistema Q${cierre.totalSistema.toFixed(2)}`);
+    });
+
+    function renderCierresTable(){
+      const tbody = document.getElementById('cierresTable'); if(!tbody) return;
+      tbody.innerHTML = '';
+      cierres.forEach((c,i)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${i+1}</td><td>${escapeHtml(c.fecha||'')}</td><td>${c.cantidadVentas||0}</td><td>Q${Number(c.totalSistema||0).toFixed(2)}</td>
+        <td><button class="btn" data-idx="${i}" data-action="view">Ver</button> <button class="btn" data-idx="${i}" data-action="del">Eliminar</button> <button class="btn" data-idx="${i}" data-action="print">Imprimir</button></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('cierresTable')?.addEventListener('click',(e)=>{
+      const b=e.target.closest('button'); if(!b) return;
+      const idx=Number(b.dataset.idx);
+      const action=b.dataset.action;
+
+      if(action==='view'){
+        const c=cierres[idx];
+        alert(`Fecha: ${c.fecha}\nVentas: ${c.cantidadVentas}\nTotal sistema: Q${Number(c.totalSistema||0).toFixed(2)}\nRecibido: Q${Number(c.totalRecibido||0).toFixed(2)}\nDiferencia: Q${Number(c.diferencia||0).toFixed(2)}`);
+      }
+
+      if(action==='print'){
+        const c=cierres[idx];
+        imprimirCierreTicket(c);
+      }
+
+      if(action==='del'){
+        if(!pedirClaveBorrado()) return;
+        if(confirm('Eliminar cierre?')){
+          cierres.splice(idx,1);
+          save();
+          renderCierresTable();
+        }
+      }
+    });
+
+    // Export cierres a .xlsx
+    document.getElementById('btnExportCierresXLS')?.addEventListener('click', ()=>{
+      try{
+        const wb = XLSX.utils.book_new();
+        const ws_data = [['#','Fecha','Ventas','Total Sistema','Efectivo','Tarjeta','Transferencia','Otros','Total Recibido','Diferencia']];
+        cierres.forEach((c,i)=>{
+          const p = c.pagos || {};
+          ws_data.push([
+            i+1,
+            c.fecha||'',
+            c.cantidadVentas||0,
+            Number(c.totalSistema||0).toFixed(2),
+            Number(p.efectivo||0).toFixed(2),
+            Number(p.tarjeta||0).toFixed(2),
+            Number(p.transferencia||0).toFixed(2),
+            Number(p.otros||0).toFixed(2),
+            Number(c.totalRecibido||0).toFixed(2),
+            Number(c.diferencia||0).toFixed(2)
+          ]);
+        });
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+        XLSX.utils.book_append_sheet(wb, ws, 'Cierres');
+        XLSX.writeFile(wb, 'iParking 👑_cierres_'+(new Date()).toISOString().slice(0,10)+'.xlsx');
+      }catch(e){console.error(e);alert('Error exportando cierres');}
+    });
+
+    // Export .xlsx registros
+    function exportXLSX(){
+      try {
+        const wb = XLSX.utils.book_new();
+        const title = 'iParking 👑- Registros';
+        const fecha = new Date().toLocaleString();
+        const ws_data = [['Tipo','Placa','Marca','Color','Código','Ingreso','Salida','Minutos','Total Q']];
+
+        registros.forEach(r=>{
+          const minutos = r.horaSalida ? Math.ceil((new Date(r.horaSalida)-new Date(r.horaIngreso))/60000) : '';
+          ws_data.push([
+            tipoLabel(r.tipo || 'CARRO'),
+            r.placa,
+            r.marca,
+            r.color||'',
+            r.codigo || '',
+            new Date(r.horaIngreso).toLocaleString(),
+            r.horaSalida?new Date(r.horaSalida).toLocaleString():'',
+            minutos,
+            r.total!=null?Number(r.total).toFixed(2):''
+          ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+        XLSX.utils.book_append_sheet(wb, ws, 'Registros');
+
+        const resumen = [
+          ['Reporte', title],
+          ['Fecha', fecha],
+          ['Total registros', registros.length],
+          ['Total recaudado', registros.reduce((s,r)=>s+(r.total||0),0)]
+        ];
+        const ws2 = XLSX.utils.aoa_to_sheet(resumen);
+        XLSX.utils.book_append_sheet(wb, ws2, 'Resumen');
+
+        XLSX.writeFile(wb, 'iParking 👑_registros_'+(new Date()).toISOString().slice(0,10)+'.xlsx');
+      } catch(err){ console.error(err); alert('Error creando .xlsx'); }
+    }
+
+    // Export visual (.xls) con logo embebido
+    function exportVisualXLS(){
+      fetch('IMAGEN1.png').then(r=>r.blob()).then(blob=>{
+        const fr = new FileReader();
+        fr.onloadend = () => {
+          const imgData = fr.result;
+          const title = 'iParking 👑- Reporte';
+          const fecha = new Date().toLocaleString();
+
+          const header = `
+            <table>
+              <tr><td colspan="9" style="text-align:left"><img src="${imgData}" style="max-height:80px"/></td></tr>
+              <tr><td colspan="9" style="font-weight:700;font-size:16pt">${title}</td></tr>
+              <tr><td colspan="9">Fecha: ${fecha}</td></tr>
+            </table><br/>`;
+
+          const cols=['Tipo','Placa','Marca','Color','Código','Ingreso','Salida','Minutos','Total Q'];
+          const rows = registros.map(r=>{
+            const minutos=r.horaSalida?Math.ceil((new Date(r.horaSalida)-new Date(r.horaIngreso))/60000):'';
+            return [
+              escapeHtml(tipoLabel(r.tipo || 'CARRO')),
+              escapeHtml(r.placa),
+              escapeHtml(r.marca),
+              escapeHtml(r.color||''),
+              escapeHtml(r.codigo || ''),
+              new Date(r.horaIngreso).toLocaleString(),
+              r.horaSalida?new Date(r.horaSalida).toLocaleString():'',
+              minutos,
+              r.total!=null?Number(r.total).toFixed(2):''
+            ];
+          });
+
+          let table = '<table border="1" style="border-collapse:collapse"><thead><tr>'+
+            cols.map(c=>`<th style="background:#f2f2f2;padding:6px 8px">${c}</th>`).join('')+
+            '</tr></thead><tbody>';
+
+          rows.forEach(rw=>{
+            table+='<tr>'+rw.map(c=>`<td style="padding:6px 8px">${c}</td>`).join('')+'</tr>';
+          });
+          table+='</tbody></table>';
+
+          const html = '<!doctype html><html><head><meta charset="utf-8"><title>'+title+'</title></head><body>'+header+table+'</body></html>';
+          const blobFile = new Blob([html],{type:'application/vnd.ms-excel'});
+          const a=document.createElement('a');
+          a.href=URL.createObjectURL(blobFile);
+          a.download='parqueo_iParking 👑_visual_'+(new Date()).toISOString().slice(0,10)+'.xls';
+          a.click();
+        };
+        fr.readAsDataURL(blob);
+      }).catch(err=>{ alert('No se pudo leer IMAGEN1.png para el Excel visual'); console.error(err); });
+    }
+
+    // Init
+    function init(){
+      actualizarTabla();
+      document.querySelector('#menu button[data-view="dashboard"]').click();
+      renderCierresTable();
+      actualizarComparativaCaja();
+      document.getElementById('search').focus();  // ← AQUÍ
+    }
+    init();
+
+    window.PM={get registros(){return registros}, get users(){return users}, get cierres(){return cierres}, save, calcularPago, TARIFAS};
+  </script>
+</body>
+</html>
